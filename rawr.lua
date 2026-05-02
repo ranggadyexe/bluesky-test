@@ -182,21 +182,16 @@ for _, iconName in ipairs(icons) do
     })
 end
 
--- Card
-local CardSection = FeaturesTab:CreateSection({
-    Name = "Card Demo",
-    Icon = "file-text",
-})
-
+-- Card with Bold and Italic
 CardSection:CreateCard({
-    Title = "Sample Card",
-    Content = "This is a card component with rich text support. You can add **bold**, *italic*, or other formatting here.",
+    Title = "Sample Card with Formatting",
+    Content = "This is a card component with <b>bold text</b>, <i>italic text</i>, and <b><i>bold italic</i></b> support using Roblox RichText.",
 })
 
--- Image (placeholder)
+-- Image with actual Roblox asset
 CardSection:CreateImage({
-    Text = "Sample Image",
-    Image = "rbxassetid://0", -- Placeholder
+    Text = "Roblox Logo",
+    Image = "rbxassetid://601589193", -- Roblox logo image
 })
 
 -- Paragraph
