@@ -7,7 +7,7 @@ Bluesky UI is a lightweight Roblox/Luau UI library created by **Wade**. It provi
 Use the main library file directly:
 
 ```lua
-local Bluesky = loadstring(game:HttpGet("https://raw.githubusercontent.com/ranggadyexe/bluesky/main/Bluesky.lua"))()
+local Bluesky = loadstring(game:HttpGet("https://raw.githubusercontent.com/ranggadyexe/bluesky-test/main/Bluesky.lua"))()
 ```
 
 ## Quick Start
@@ -27,6 +27,20 @@ local Window = Bluesky:CreateWindow({
 		AutoLoad = true,
 		AutoSave = true,
 		SaveWindowState = true,
+	},
+	Discord = {
+		Enabled = true,
+		Invite = "invitecode",
+		RememberJoins = true,
+	},
+	KeySystem = true,
+	KeySettings = {
+		Enabled = true,
+		Key = {"key1", "https://pastebin.com/raw/xxx"},
+		GrabKeyFromSite = true,
+		FileName = "MyKey",
+		SaveKey = true,
+		Note = "Get key from our Discord",
 	},
 })
 
@@ -72,7 +86,10 @@ Window:Notify({
 - Toast notifications with close/progress support.
 - Confirmation modal with `Escape` cancel and `Enter` confirm.
 - Config saving/loading with flags and optional window position persistence.
-- Lucide/Rayfield icon loading with local text fallback.
+- **Full Lucide Roblox integration** - supports all Lucide icons via lucide-roblox library.
+- **Discord integration** - prompt users to join your Discord server.
+- **Key System** - protect your script with key validation (supports URL keys).
+- **DisableBuildWarnings** option for cleaner output.
 - Scoped cleanup for controls, dropdowns, notifications, sections, tabs, and windows.
 
 ## Components
@@ -139,7 +156,7 @@ There is no demo bundle, `dist` folder, smoke test, or build script in the relea
 ## Notes
 
 - Config saving requires executor filesystem functions such as `readfile`, `writefile`, `isfile`, and `makefolder`.
-- Remote Lucide icons require `game:HttpGet` and `loadstring`. If unavailable, Bluesky uses fallback text icons.
+- Full Lucide icons require `game:HttpGet` and `loadstring` to load the lucide-roblox library.
 - `ToggleKey` and `ToggleUIKeybind` are both supported.
 - `Title` works as an alias for `Name` in most component options.
 - Common returned controls support `SetVisible`, `SetDisabled`, `Destroy`, and usually `Get`/`Set`.
