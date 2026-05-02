@@ -1,5 +1,3 @@
--- rawr.lua - Test all Bluesky features
--- Load Bluesky UI from GitHub
 local success, Bluesky = pcall(function()
     return loadstring(game:HttpGet("https://raw.githubusercontent.com/ranggadyexe/bluesky-test/main/Bluesky.lua"))()
 end)
@@ -9,11 +7,10 @@ if not success or not Bluesky then
     return
 end
 
--- Create main window with ALL features enabled
 local Window = Bluesky:CreateWindow({
     Name = "Rawr Test UI",
     Subtitle = "Testing All Bluesky Features v" .. Bluesky.Version,
-    Icon = "zap", -- Will use Lucide icon
+    Icon = "zap",
     Theme = "Bluesky",
     Density = "Comfortable",
     ToggleUIKeybind = Enum.KeyCode.RightControl,
@@ -22,14 +19,12 @@ local Window = Bluesky:CreateWindow({
     MaxNotifications = 6,
     DisableBuildWarnings = false,
     
-    -- Discord Integration
     Discord = {
         Enabled = true,
-        Invite = "invitecode", -- Replace with actual invite code
+        Invite = "invitecode",
         RememberJoins = true,
     },
     
-    -- Key System
     KeySystem = true,
     KeySettings = {
         Enabled = true,
@@ -42,7 +37,6 @@ local Window = Bluesky:CreateWindow({
         Key = {"test-key-123", "secret-key-456"},
     },
     
-    -- Configuration Saving
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "RawrTestUI",
@@ -58,19 +52,16 @@ if not Window then
     return
 end
 
--- Create Tabs with Lucide icons
 local MainTab = Window:CreateTab("Main", "home")
 local FeaturesTab = Window:CreateTab("Features", "sparkles")
 local SettingsTab = Window:CreateTab("Settings", "settings")
 
--- === MAIN TAB ===
 local DemoSection = MainTab:CreateSection({
     Name = "Demo Components",
     Icon = "layout-dashboard",
     Collapsible = true,
 })
 
--- Button
 DemoSection:CreateButton({
     Name = "Test Button",
     Icon = "play",
@@ -83,7 +74,6 @@ DemoSection:CreateButton({
     end,
 })
 
--- Toggle
 DemoSection:CreateToggle({
     Name = "Test Toggle",
     CurrentValue = false,
@@ -97,7 +87,6 @@ DemoSection:CreateToggle({
     end,
 })
 
--- Slider
 DemoSection:CreateSlider({
     Name = "Test Slider",
     Range = {0, 100},
@@ -110,7 +99,6 @@ DemoSection:CreateSlider({
     end,
 })
 
--- Input
 DemoSection:CreateInput({
     Name = "Test Input",
     CurrentValue = "",
@@ -121,7 +109,6 @@ DemoSection:CreateInput({
     end,
 })
 
--- Dropdown
 DemoSection:CreateDropdown({
     Name = "Test Dropdown",
     Options = {"Option A", "Option B", "Option C"},
@@ -133,7 +120,6 @@ DemoSection:CreateDropdown({
     end,
 })
 
--- Multi Dropdown
 DemoSection:CreateMultiDropdown({
     Name = "Test Multi Dropdown",
     Options = {"Item 1", "Item 2", "Item 3", "Item 4"},
@@ -145,7 +131,6 @@ DemoSection:CreateMultiDropdown({
     end,
 })
 
--- Color Picker
 DemoSection:CreateColorPicker({
     Name = "Test Color Picker",
     Color = Color3.fromRGB(255, 100, 100),
@@ -155,7 +140,6 @@ DemoSection:CreateColorPicker({
     end,
 })
 
--- Keybind
 DemoSection:CreateKeybind({
     Name = "Test Keybind",
     CurrentKeybind = "F",
@@ -165,14 +149,13 @@ DemoSection:CreateKeybind({
     end,
 })
 
--- === FEATURES TAB ===
 local LucideSection = FeaturesTab:CreateSection({
-    Name = "Lucide Icons Demo",
+    Name = "Lucide Icons Demo (2 Columns)",
     Icon = "palette",
     Collapsible = true,
+    Columns = 2,
 })
 
--- Show various Lucide icons
 local icons = {"home", "search", "settings", "user", "bell", "shield", "zap", "heart", "star", "check", "x", "plus", "minus", "trash", "edit", "save", "refresh", "download", "upload", "mail"}
 
 for _, iconName in ipairs(icons) do
@@ -182,46 +165,144 @@ for _, iconName in ipairs(icons) do
     })
 end
 
--- Card with Bold and Italic
+local CardSection = FeaturesTab:CreateSection({
+    Name = "Card Demo (2 Columns) - 10 Formatting Examples",
+    Icon = "file-text",
+    Columns = 2,
+})
+
 CardSection:CreateCard({
-    Title = "Sample Card with Formatting",
-    Content = "This is a card component with <b>bold text</b>, <i>italic text</i>, and <b><i>bold italic</i></b> support using Roblox RichText.",
+    Title = "1. Bold Text",
+    Content = "This card uses <b>bold text</b> formatting with RichText support.",
 })
 
--- Image with actual Roblox asset
-CardSection:CreateImage({
+CardSection:CreateCard({
+    Title = "2. Italic Text",
+    Content = "This card uses <i>italic text</i> formatting for emphasis.",
+})
+
+CardSection:CreateCard({
+    Title = "3. Underline",
+    Content = "Text with <u>underline</u> decoration using RichText.",
+})
+
+CardSection:CreateCard({
+    Title = "4. Strikethrough",
+    Content = "Text with <s>strikethrough</s> for deleted content.",
+})
+
+CardSection:CreateCard({
+    Title = "5. Font Size",
+    Content = "Different sizes: <font size='24'>Large</font>, <font size='14'>Normal</font>, <font size='10'>Small</font>.",
+})
+
+CardSection:CreateCard({
+    Title = "6. Font Color",
+    Content = "Colored text: <font color='#FF0000'>Red</font>, <font color='#00FF00'>Green</font>, <font color='#0000FF'>Blue</font>.",
+})
+
+CardSection:CreateCard({
+    Title = "7. Font Face",
+    Content = "Different fonts: <font face='Arial'>Arial</font>, <font face='SourceSansPro'>Source Sans</font>.",
+})
+
+CardSection:CreateCard({
+    Title = "8. Combined Bold+Italic",
+    Content = "Combined: <b><i>bold and italic</i></b> together in one text.",
+})
+
+CardSection:CreateCard({
+    Title = "9. Stroke/Border",
+    Content = "Text with <stroke color='#FF0000' joins='true' thickness='2'>stroke/border</stroke> effect.",
+})
+
+CardSection:CreateCard({
+    Title = "10. Uppercase + All",
+    Content = "<b>UPPERCASE BOLD</b>, <i>italic lowercase</i>, <u>underline</u>, <font color='#FFA500' size='16'>Orange Large</font>.",
+})
+
+local ImageSection = FeaturesTab:CreateSection({
+    Name = "Image Demo",
+    Icon = "image",
+})
+
+ImageSection:CreateImage({
     Text = "Roblox Logo",
-    Image = "rbxassetid://601589193", -- Roblox logo image
+    Image = "rbxassetid://601589193",
 })
 
--- Paragraph
-CardSection:CreateParagraph({
-    Title = "Paragraph Title",
-    Content = "This is a paragraph component for displaying longer text content with proper wrapping and formatting.",
+local ParagraphSection = FeaturesTab:CreateSection({
+    Name = "Paragraph Demo - 10 Formatting Examples",
+    Icon = "align-left",
 })
 
--- Divider
-CardSection:CreateDivider({
+ParagraphSection:CreateParagraph({
+    Title = "1. Basic Bold & Italic",
+    Content = "This paragraph shows <b>bold text</b> and <i>italic text</i> using Roblox RichText formatting.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "2. Font Size Variations",
+    Content = "Different font sizes: <font size='24'>Large Text (24px)</font>, <font size='16'>Medium Text (16px)</font>, <font size='12'>Small Text (12px)</font>.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "3. Font Colors",
+    Content = "Colored text examples: <font color='#FF0000'>Red Text</font>, <font color='#00FF00'>Green Text</font>, <font color='#0000FF'>Blue Text</font>, <font color='#FFFF00'>Yellow Text</font>.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "4. Underline & Strikethrough",
+    Content = "Text decorations: <u>Underlined text</u> and <s>Strikethrough text</s> for different emphasis styles.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "5. Combined Formatting",
+    Content = "<b><i>Bold and Italic Together</i></b> with <font color='#FF69B4' size='18'>Pink Large Text</font> and <u><font color='#00FFFF'>Cyan Underlined</font></u>.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "6. Font Face Change",
+    Content = "Different font faces: <font face='Arial'>Arial Font</font>, <font face='SourceSansPro'>Source Sans Pro</font>, <font face='Gotham'>Gotham Style</font>.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "7. Text Stroke/Border",
+    Content = "Text with border effect: <stroke color='#000000' joins='true' thickness='2'>Black Stroke Text</stroke> and <stroke color='#FF0000' joins='true' thickness='3'>Red Thick Stroke</stroke>.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "8. Uppercase Styling",
+    Content = "<b><font size='20' color='#FFA500'>UPPERCASE STYLED TEXT</font></b> with <i><font color='#800080'>purple italic lowercase</font></i> and normal text mix.",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "9. Mixed Formatting Complex",
+    Content = "<b>Bold</b> + <i>Italic</i> + <u>Underline</u> + <s>Strike</s> + <font color='#FF00FF' size='14'>Pink Size14</font> + <stroke joins='true' thickness='1' color='#FFFFFF'>White Stroke</stroke> all in one!",
+})
+
+ParagraphSection:CreateParagraph({
+    Title = "10. Full Rich Text Demo",
+    Content = "<font size='22' color='#FFD700'><b>GOLDEN HEADER</b></font>\n\n<font size='16' color='#00CED1'><i>Turquoise italic subtext</i></font>\n\nNormal text with <b>bold</b> and <u>underline</u>.\n\n<font color='#32CD32'>Green text</font> with <stroke joins='true' thickness='2' color='#006400'>Dark Green Stroke</stroke>.\n\n<u><font color='#FF1493' size='18'>Pink Underlined Large</font></u>",
+})
+
+ParagraphSection:CreateDivider({
     Text = "Divider with Text",
 })
 
--- === SETTINGS TAB ===
 local ConfigSection = SettingsTab:CreateSection({
     Name = "Configuration",
     Icon = "database",
 })
 
--- Config Manager
 ConfigSection:CreateConfigManager({
     Name = "Config Manager",
 })
 
--- Theme Editor
 ConfigSection:CreateThemeEditor({
     Name = "Theme Editor",
 })
 
--- Settings from Bluesky
 local SettingsSection = SettingsTab:CreateSection({
     Name = "Bluesky Settings",
     Icon = "settings",
@@ -241,7 +322,6 @@ SettingsSection:CreateKeybind({
     end,
 })
 
--- Test notifications
 local NotifySection = SettingsTab:CreateSection({
     Name = "Test Notifications",
     Icon = "bell",
@@ -299,7 +379,6 @@ NotifySection:CreateButton({
     end,
 })
 
--- Confirm dialog test
 NotifySection:CreateButton({
     Name = "Test Confirm Dialog",
     Icon = "help-circle",
@@ -328,19 +407,19 @@ NotifySection:CreateButton({
     end,
 })
 
--- Show window info
 Window:Notify({
     Title = "Rawr Test UI Loaded!",
-    Content = "All Bluesky features are now active. Test the UI components!",
+    Content = "All Bluesky features are now active with 2-column layouts and RichText formatting!",
     Type = "success",
     Duration = 5,
 })
 
 print("[Rawr.lua] All features loaded successfully!")
 print("[Rawr.lua] Features enabled:")
+print("  - 2-Column Layout for Labels and Cards")
+print("  - 10 Card RichText formatting examples")
+print("  - 10 Paragraph RichText formatting examples")
 print("  - Full Lucide Roblox icons")
 print("  - Discord integration")
 print("  - Key System")
-print("  - DisableBuildWarnings")
-print("  - Config saving")
 print("  - All UI components")
