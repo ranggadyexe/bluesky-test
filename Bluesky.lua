@@ -2651,6 +2651,9 @@ function WindowMethods:Notify(options)
 	options = normalizeOptions(options, "Notification")
 
 	local theme = self.Theme
+	if options.Name and not options.Title then
+		options.Title = options.Name
+	end
 	local notifyType = string.lower(tostring(options.Type or options.Kind or ""))
 	local presets = {
 		success = { Color = theme.Success, Icon = "check" },
@@ -3697,6 +3700,9 @@ function Bluesky:CreateWindow(config)
 	end
 	if config.Icon == nil and config.WindowIcon ~= nil then
 		config.Icon = config.WindowIcon
+	end
+	if config.Icon == nil and type(config.Name) == "string" then
+		config.Icon = string.lower(config.Name:gsub("%s+", ""))
 	end
 	config.Density = normalizeDensity(config.Density)
 	config.Name = ensureType(config.Name, "string", "CreateWindow.Name", config.Name)
