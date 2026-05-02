@@ -8,3 +8,6 @@ BlueskyUI/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Test files (local only, never push)
+rawr.lua
