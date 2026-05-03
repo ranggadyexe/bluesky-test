@@ -1090,59 +1090,71 @@ end
 
 local function createKeyGate(window, config)
 	local keySettings = config.KeySettings or {}
-	local acceptedKeys = keySettings.Key or {}
-	if type(acceptedKeys) ~= "table" or #acceptedKeys == 0 then
-		acceptedKeys = { "Bluesky" }
+	local keyConfig = keySettings.Key or {}
+	if type(keyConfig) ~= "table" and type(keyConfig) ~= "string" then
+		keyConfig = { "Bluesky" }
 	end
 
 	local keyFileName = tostring(keySettings.FileName or "bluesky_key")
 	local saveEnabled = keySettings.SaveKey ~= false
-	local grabFromSite = keySettings.GrabKeyFromSite == true
 	local titleText = tostring(keySettings.Title or "Key System")
+	local subtitleText = tostring(keySettings.Subtitle or "")
 	local noteText = tostring(keySettings.Note or "Enter access key.")
 	local savedKey = saveEnabled and loadSavedKey(keyFileName) or nil
 
-	local keyUrls = {}
+	local isUrlValidation = type(keyConfig) == "string"
+		and (keyConfig:match("^https?://") or keyConfig:match("^rbxasset"))
 	local plainKeys = {}
-	for _, k in ipairs(acceptedKeys) do
-		if type(k) == "string" then
-			if grabFromSite and (k:match("^https?://") or k:match("^rbxasset")) then
-				table.insert(keyUrls, k)
-			else
-				table.insert(plainKeys, k)
+	local keyUrl = nil
+
+	if isUrlValidation then
+		keyUrl = keyConfig
+	else
+		if type(keyConfig) == "table" then
+			for _, k in ipairs(keyConfig) do
+				table.insert(plainKeys, tostring(k))
 			end
+		elseif type(keyConfig) == "string" then
+			table.insert(plainKeys, keyConfig)
+		end
+		if #plainKeys == 0 then
+			table.insert(plainKeys, "Bluesky")
 		end
 	end
 
-	if savedKey and savedKey ~= "" then
-		local trimmedSaved = savedKey:gsub("%s+", "")
-		local validKey = false
+	local function validateKey(key)
+		local trimmed = key:gsub("%s+", "")
+		if trimmed == "" then return false end
 
-		for _, expected in ipairs(acceptedKeys) do
-			if type(expected) == "string" then
-				if grabFromSite and (expected:match("^https?://") or expected:match("^rbxasset")) then
-					local ok, fetchedKey = pcall(function()
-						return game:HttpGet(expected)
-					end)
-					if ok and fetchedKey and fetchedKey:gsub("%s+", "") == trimmedSaved then
-						validKey = true
-						break
-					end
-				elseif expected == trimmedSaved then
-					validKey = true
-					break
+		if isUrlValidation then
+			local validationUrl = keyUrl:gsub("%{key%}", trimmed)
+			local ok, response = pcall(function()
+				return game:HttpGet(validationUrl)
+			end)
+			if ok and response then
+				local cleaned = response:gsub("%s+", ""):lower()
+				if cleaned ~= "" and cleaned ~= "false" and cleaned ~= "invalid" and cleaned ~= "error" then
+					return true
 				end
 			end
-		end
-
-		if validKey then
-			return
+			return false
+		else
+			for _, pk in ipairs(plainKeys) do
+				if trimmed == pk then
+					return true
+				end
+			end
+			return false
 		end
 	end
 
-	local cardHeight = 220
-	if grabFromSite and #keyUrls > 0 then
-		cardHeight = cardHeight + (#keyUrls * 32) + 12
+	if savedKey and savedKey ~= "" and validateKey(savedKey) then
+		return
+	end
+
+	local cardHeight = 200
+	if subtitleText ~= "" then
+		cardHeight = cardHeight + 20
 	end
 
 	local overlay = create("Frame", {
@@ -1168,51 +1180,17 @@ local function createKeyGate(window, config)
 		Font = Enum.Font.GothamBold,
 		Size = UDim2.new(1, 0, 0, 22),
 	})
+	if subtitleText ~= "" then
+		makeText(card, subtitleText, 12, window.Theme.Accent, {
+			Size = UDim2.new(1, 0, 0, 18),
+			Font = Enum.Font.GothamMedium,
+		})
+	end
 	makeText(card, noteText, 11, window.Theme.SubText, {
 		Size = UDim2.new(1, 0, 0, 18),
 		TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top,
 	})
-
-	if grabFromSite and #keyUrls > 0 then
-		for _, url in ipairs(keyUrls) do
-			local linkBtn = create("TextButton", {
-				AutoButtonColor = false,
-				BackgroundColor3 = window.Theme.SurfaceAlt,
-				Font = Enum.Font.Gotham,
-				Size = UDim2.new(1, 0, 0, 28),
-				Text = "Get Key",
-				TextColor3 = window.Theme.Accent,
-				TextSize = 11,
-				Parent = card,
-			})
-			corner(linkBtn, 6)
-			stroke(linkBtn, window.Theme.Accent, 0.5)
-
-			if type(setclipboard) == "function" then
-				window:_connect(linkBtn.MouseButton1Click, function()
-					linkBtn.Text = "Copied!"
-					pcall(function()
-						setclipboard(url)
-					end)
-					task.delay(1.5, function()
-						if linkBtn and linkBtn.Parent then
-							linkBtn.Text = "Get Key"
-						end
-					end)
-				end)
-			else
-				linkBtn.Text = url
-				linkBtn.TextSize = 9
-			end
-		end
-
-		local helpText = makeText(card, "Get the key from the link above, then paste it below.", 10, window.Theme.SubText, {
-			Size = UDim2.new(1, 0, 0, 14),
-			TextWrapped = true,
-			TextYAlignment = Enum.TextYAlignment.Top,
-		})
-	end
 
 	local input = create("TextBox", {
 		BackgroundColor3 = window.Theme.SurfaceAlt,
@@ -1245,34 +1223,30 @@ local function createKeyGate(window, config)
 	})
 	corner(submit, 6)
 
+	local validating = false
+
 	local function verify()
+		if validating then return end
 		local entered = tostring(input.Text or ""):gsub("%s+", "")
-		for _, expected in ipairs(acceptedKeys) do
-			if type(expected) == "string" then
-				if grabFromSite and (expected:match("^https?://") or expected:match("^rbxasset")) then
-					local ok, fetchedKey = pcall(function()
-						return game:HttpGet(expected)
-					end)
-					if ok and fetchedKey and fetchedKey:gsub("%s+", "") == entered then
-						if saveEnabled then
-							saveKey(keyFileName, input.Text)
-						end
-						overlay:Destroy()
-						window.Main.Visible = true
-						return
-					end
-				elseif expected == entered then
-					if saveEnabled then
-						saveKey(keyFileName, input.Text)
-					end
-					overlay:Destroy()
-					window.Main.Visible = true
-					return
-				end
-			end
+		if entered == "" then
+			status.Text = "Please enter a key."
+			return
 		end
 
-		status.Text = "Invalid key."
+		validating = true
+		submit.Text = "Checking..."
+
+		if validateKey(entered) then
+			if saveEnabled then
+				saveKey(keyFileName, entered)
+			end
+			overlay:Destroy()
+			window.Main.Visible = true
+		else
+			status.Text = "Invalid key."
+			submit.Text = "Unlock"
+			validating = false
+		end
 	end
 
 	window.Main.Visible = false
