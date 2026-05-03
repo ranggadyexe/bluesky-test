@@ -1135,10 +1135,12 @@ local function createKeyGate(window, config)
 	end
 
 	local keyAuthSessionId = nil
+	local keyAuthInitError = nil
 
 	local function keyAuthInit()
 		if not isKeyAuth then return nil, "not configured" end
 		if keyAuthSessionId then return keyAuthSessionId, nil end
+		if keyAuthInitError then return nil, keyAuthInitError end
 
 		local initUrl = string.format(
 			"https://keyauth.win/api/1.3/?type=init&name=%s&ownerid=%s%s",
@@ -1148,7 +1150,10 @@ local function createKeyGate(window, config)
 		local ok, response = pcall(function()
 			return game:HttpGet(initUrl)
 		end)
-		if not ok then return nil, "network error" end
+		if not ok then
+			keyAuthInitError = "Failed to connect to KeyAuth"
+			return nil, keyAuthInitError
+		end
 
 		local parsed = nil
 		pcall(function()
@@ -1158,7 +1163,8 @@ local function createKeyGate(window, config)
 			keyAuthSessionId = parsed.sessionid
 			return parsed.sessionid, nil
 		end
-		return nil, parsed and parsed.message or "init failed"
+		keyAuthInitError = parsed and parsed.message or "KeyAuth init failed"
+		return nil, keyAuthInitError
 	end
 
 	local function validateKey(key)
@@ -1167,7 +1173,10 @@ local function createKeyGate(window, config)
 
 		if isKeyAuth then
 			local session, err = keyAuthInit()
-			if not session then return false end
+			if not session then
+				showStatus(err or "KeyAuth error", true)
+				return false
+			end
 
 			local validateUrl = string.format(
 				"https://keyauth.win/api/1.3/?type=register&key=%s&name=%s&ownerid=%s&sessionid=%s",
@@ -1176,13 +1185,20 @@ local function createKeyGate(window, config)
 			local ok, response = pcall(function()
 				return game:HttpGet(validateUrl)
 			end)
-			if not ok then return false end
+			if not ok then
+				showStatus("Network error", true)
+				return false
+			end
 
 			local parsed = nil
 			pcall(function()
 				parsed = game:GetService("HttpService"):JSONDecode(response)
 			end)
-			return parsed and parsed.success == true
+			if not parsed or parsed.success ~= true then
+				showStatus(parsed and parsed.message or "Invalid key", true)
+				return false
+			end
+			return true
 		elseif isUrlValidation then
 			local validationUrl = keyUrl:gsub("%{key%}", trimmed)
 			local ok, response = pcall(function()
