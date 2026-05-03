@@ -1111,10 +1111,12 @@ local function createKeyGate(window, config)
 		and keyAuthConfig.AppName and keyAuthConfig.OwnerID
 	local keyAuthApp = nil
 	local keyAuthOwner = nil
+	local keyAuthVersion = nil
 
 	if isKeyAuth then
 		keyAuthApp = tostring(keyAuthConfig.AppName)
 		keyAuthOwner = tostring(keyAuthConfig.OwnerID)
+		keyAuthVersion = keyAuthConfig.Version and tostring(keyAuthConfig.Version) or nil
 	end
 
 	if isUrlValidation then
@@ -1139,8 +1141,9 @@ local function createKeyGate(window, config)
 		if keyAuthSessionId then return keyAuthSessionId, nil end
 
 		local initUrl = string.format(
-			"https://keyauth.win/api/1.3/?type=init&name=%s&ownerid=%s",
-			keyAuthApp, keyAuthOwner
+			"https://keyauth.win/api/1.3/?type=init&name=%s&ownerid=%s%s",
+			keyAuthApp, keyAuthOwner,
+			keyAuthVersion and ("&ver=" .. keyAuthVersion) or ""
 		)
 		local ok, response = pcall(function()
 			return game:HttpGet(initUrl)
