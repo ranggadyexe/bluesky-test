@@ -1174,8 +1174,7 @@ local function createKeyGate(window, config)
 		if isKeyAuth then
 			local session, err = keyAuthInit()
 			if not session then
-				showStatus(err or "KeyAuth error", true)
-				return false
+				return false, err or "KeyAuth error"
 			end
 
 			local validateUrl = string.format(
@@ -1186,8 +1185,7 @@ local function createKeyGate(window, config)
 				return game:HttpGet(validateUrl)
 			end)
 			if not ok then
-				showStatus("Network error", true)
-				return false
+				return false, "Network error"
 			end
 
 			local parsed = nil
@@ -1195,8 +1193,7 @@ local function createKeyGate(window, config)
 				parsed = game:GetService("HttpService"):JSONDecode(response)
 			end)
 			if not parsed or parsed.success ~= true then
-				showStatus(parsed and parsed.message or "Invalid key", true)
-				return false
+				return false, parsed and parsed.message or "Invalid key"
 			end
 			return true
 		elseif isUrlValidation then
@@ -1315,7 +1312,7 @@ local function createKeyGate(window, config)
 		submit.Text = "Checking..."
 		status.Text = ""
 
-		local valid = validateKey(entered)
+		local valid, err = validateKey(entered)
 		if valid then
 			if saveEnabled then
 				saveKey(keyFileName, entered)
@@ -1323,7 +1320,7 @@ local function createKeyGate(window, config)
 			overlay:Destroy()
 			window.Main.Visible = true
 		else
-			showStatus("Invalid key.", true)
+			showStatus(err or "Invalid key.", true)
 			submit.Text = "Unlock"
 			validating = false
 		end
