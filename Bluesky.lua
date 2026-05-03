@@ -1140,6 +1140,11 @@ local function createKeyGate(window, config)
 		end
 	end
 
+	local cardHeight = 220
+	if grabFromSite and #keyUrls > 0 then
+		cardHeight = cardHeight + (#keyUrls * 32) + 12
+	end
+
 	local overlay = create("Frame", {
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 		BackgroundTransparency = 0.28,
@@ -1151,7 +1156,7 @@ local function createKeyGate(window, config)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = window.Theme.Surface,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(320, 200),
+		Size = UDim2.fromOffset(320, cardHeight),
 		Parent = overlay,
 	})
 	corner(card, 10)
@@ -1168,6 +1173,46 @@ local function createKeyGate(window, config)
 		TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top,
 	})
+
+	if grabFromSite and #keyUrls > 0 then
+		for _, url in ipairs(keyUrls) do
+			local linkBtn = create("TextButton", {
+				AutoButtonColor = false,
+				BackgroundColor3 = window.Theme.SurfaceAlt,
+				Font = Enum.Font.Gotham,
+				Size = UDim2.new(1, 0, 0, 28),
+				Text = "Get Key",
+				TextColor3 = window.Theme.Accent,
+				TextSize = 11,
+				Parent = card,
+			})
+			corner(linkBtn, 6)
+			stroke(linkBtn, window.Theme.Accent, 0.5)
+
+			if type(setclipboard) == "function" then
+				window:_connect(linkBtn.MouseButton1Click, function()
+					linkBtn.Text = "Copied!"
+					pcall(function()
+						setclipboard(url)
+					end)
+					task.delay(1.5, function()
+						if linkBtn and linkBtn.Parent then
+							linkBtn.Text = "Get Key"
+						end
+					end)
+				end)
+			else
+				linkBtn.Text = url
+				linkBtn.TextSize = 9
+			end
+		end
+
+		local helpText = makeText(card, "Get the key from the link above, then paste it below.", 10, window.Theme.SubText, {
+			Size = UDim2.new(1, 0, 0, 14),
+			TextWrapped = true,
+			TextYAlignment = Enum.TextYAlignment.Top,
+		})
+	end
 
 	local input = create("TextBox", {
 		BackgroundColor3 = window.Theme.SurfaceAlt,
@@ -1187,51 +1232,6 @@ local function createKeyGate(window, config)
 	local status = makeText(card, "", 11, window.Theme.Danger, {
 		Size = UDim2.new(1, 0, 0, 16),
 	})
-
-	if grabFromSite and #keyUrls > 0 then
-		local fetchBtn = create("TextButton", {
-			AutoButtonColor = false,
-			BackgroundColor3 = window.Theme.Accent,
-			Font = Enum.Font.GothamMedium,
-			Size = UDim2.new(1, 0, 0, 28),
-			Text = "Get Key",
-			TextColor3 = Color3.fromRGB(255, 255, 255),
-			TextSize = 12,
-			Parent = card,
-		})
-		corner(fetchBtn, 6)
-
-		local fetching = false
-		window:_connect(fetchBtn.MouseButton1Click, function()
-			if fetching then return end
-			fetching = true
-			fetchBtn.Text = "Loading..."
-
-			local fetched = false
-			for _, url in ipairs(keyUrls) do
-				local ok, fetchedKey = pcall(function()
-					return game:HttpGet(url)
-				end)
-				if ok and fetchedKey then
-					local trimmed = fetchedKey:gsub("%s+", "")
-					if trimmed ~= "" then
-						input.Text = trimmed
-						status.Text = ""
-						fetchBtn.Text = "Fetched!"
-						fetched = true
-						break
-					end
-				end
-			end
-
-			if not fetched then
-				status.Text = "Failed to fetch key."
-				fetchBtn.Text = "Get Key"
-			end
-
-			fetching = false
-		end)
-	end
 
 	local submit = create("TextButton", {
 		AutoButtonColor = false,
