@@ -3,7 +3,7 @@
 
 local Bluesky = {}
 
-Bluesky.Version = "0.9.2"
+Bluesky.Version = "0.9.3"
 Bluesky.Icons = {}
 Bluesky.DebugWarnings = true
 Bluesky.MissingIconWarnings = {}
@@ -1358,6 +1358,49 @@ function Bluesky:LoadConfiguration(profileName)
 	return false, "window not created"
 end
 
+function Bluesky:CheckForUpdates(config)
+	config = config or {}
+	local repo = config.Repository or "ranggadyexe/bluesky-test"
+	local branch = config.Branch or "main"
+	local versionFile = config.VersionFile or "Bluesky.lua"
+	local currentVersion = self.Version
+	local onCheck = config.OnCheck
+
+	local url = string.format("https://raw.githubusercontent.com/%s/%s/%s", repo, branch, versionFile)
+
+	local ok, source = pcall(function()
+		return game:HttpGet(url)
+	end)
+	if not ok or type(source) ~= "string" or source == "" then
+		if onCheck then
+			onCheck(false, "Failed to check for updates")
+		end
+		return false, "Failed to check for updates"
+	end
+
+	local latestVersion = source:match('Bluesky%.Version%s*=%s*"([^"]+)"')
+	if not latestVersion then
+		if onCheck then
+			onCheck(false, "Could not parse version")
+		end
+		return false, "Could not parse version"
+	end
+
+	local isUpdateAvailable = latestVersion ~= currentVersion
+	local result = {
+		Current = currentVersion,
+		Latest = latestVersion,
+		HasUpdate = isUpdateAvailable,
+		DownloadUrl = string.format("https://raw.githubusercontent.com/%s/%s/%s", repo, branch, versionFile),
+	}
+
+	if onCheck then
+		onCheck(isUpdateAvailable, result)
+	end
+
+	return isUpdateAvailable, result
+end
+
 function Bluesky:_loadRayfieldIcons()
 	if self.SecureMode or self.RemoteIconsEnabled == false then
 		return nil
@@ -2238,6 +2281,16 @@ function WindowMethods:SaveConfig(profileName)
 		payload.WindowState = encodeValue(self:_captureWindowState())
 	end
 
+	if self.SaveTheme then
+		local themeData = {}
+		for k, v in pairs(self.Theme) do
+			if typeof(v) == "Color3" then
+				themeData[k] = { v.R, v.G, v.B }
+			end
+		end
+		payload.Theme = themeData
+	end
+
 	local ok, encoded = pcall(function()
 		return HttpService:JSONEncode(payload)
 	end)
@@ -2296,6 +2349,18 @@ function WindowMethods:LoadConfig(profileName)
 
 	if self.SaveWindowState and type(data.WindowState) == "table" then
 		self:_applyWindowState(decodeValue(data.WindowState))
+	end
+
+	if type(data.Theme) == "table" then
+		local restoredTheme = {}
+		for k, v in pairs(data.Theme) do
+			if type(v) == "table" and #v == 3 then
+				restoredTheme[k] = Color3.new(v[1], v[2], v[3])
+			end
+		end
+		if next(restoredTheme) then
+			self:SetTheme(restoredTheme)
+		end
 	end
 
 	self._loadingConfig = previousLoading
@@ -3545,6 +3610,27 @@ function Bluesky:CreateWindow(config)
 
 	local theme = copyTheme(config.Theme)
 
+	local configFolder = (config.ConfigurationSaving and config.ConfigurationSaving.FolderName) or "BlueskyUI"
+	local saveThemeFlag = config.ConfigurationSaving and (config.ConfigurationSaving.SaveTheme) ~= false
+	if saveThemeFlag and canReadFs() then
+		local themePath = configFolder .. "/theme.json"
+		local ok, raw = pcall(function()
+			return readfile(themePath)
+		end)
+		if ok and type(raw) == "string" then
+			local parsed, decoded = pcall(function()
+				return HttpService:JSONDecode(raw)
+			end)
+			if parsed and type(decoded) == "table" then
+				for k, v in pairs(decoded) do
+					if type(v) == "table" and #v == 3 then
+						theme[k] = Color3.new(v[1], v[2], v[3])
+					end
+				end
+			end
+		end
+	end
+
 	local window = setmetatable({
 		Theme = theme,
 		Flags = {},
@@ -3623,6 +3709,7 @@ function Bluesky:CreateWindow(config)
 	window.AutoSaveConfig = window.ConfigSavingEnabled and (config.ConfigurationSaving and config.ConfigurationSaving.AutoSave) == true
 	window.AutoSaveDelay = (config.ConfigurationSaving and config.ConfigurationSaving.AutoSaveDelay) or 0.8
 	window.SaveWindowState = window.ConfigSavingEnabled and (config.ConfigurationSaving and config.ConfigurationSaving.SaveWindowState) == true
+	window.SaveTheme = window.ConfigSavingEnabled and (config.ConfigurationSaving and config.ConfigurationSaving.SaveTheme) ~= false
 	window.Mobile = isMobile
 	window.ShowText = tostring(config.ShowText or config.Name or "Bluesky")
 	window.Visible = true
@@ -4174,10 +4261,13 @@ function HostMethods:CreateImage(options)
 	local theme = window.Theme
 	local source = options.Image or options.Asset or options.Source
 	local height = tonumber(options.Height) or 118
+	local caption = options.Caption or options.Name or ""
+	local hasCaption = tostring(caption) ~= ""
 
 	local item = create("Frame", {
+		AutomaticSize = hasCaption and Enum.AutomaticSize.Y or Enum.AutomaticSize.None,
 		BackgroundColor3 = theme.Item,
-		Size = UDim2.new(1, 0, 0, height),
+		Size = hasCaption and UDim2.new(1, 0, 0, 0) or UDim2.new(1, 0, 0, height),
 		Parent = self._container,
 	})
 	corner(item, 8)
@@ -4188,10 +4278,19 @@ function HostMethods:CreateImage(options)
 		BackgroundColor3 = theme.SurfaceAlt,
 		Image = "",
 		ScaleType = options.ScaleType or Enum.ScaleType.Crop,
-		Size = UDim2.fromScale(1, 1),
+		Size = hasCaption and UDim2.new(1, 0, 1, -22) or UDim2.fromScale(1, 1),
 		Parent = item,
 	})
 	corner(image, 7)
+
+	local captionLabel = nil
+	if hasCaption then
+		captionLabel = makeText(item, tostring(caption), 11, theme.SubText, {
+			Position = UDim2.new(0, 0, 1, -16),
+			Size = UDim2.new(1, 0, 0, 14),
+			TextTruncate = Enum.TextTruncate.AtEnd,
+		})
+	end
 
 	local control = {
 		Instance = item,
@@ -4214,12 +4313,19 @@ function HostMethods:CreateImage(options)
 		return self:SetImage(nextSource)
 	end
 
+	function control:SetCaption(text)
+		if captionLabel then
+			captionLabel.Text = tostring(text or "")
+		end
+		return self
+	end
+
 	function control:Destroy()
 		item:Destroy()
 	end
 
 	control:SetImage(source)
-	window:_registerSearchItem(options.Name, item, self._sectionInfo)
+	window:_registerSearchItem(caption, item, self._sectionInfo)
 	return attachControlBase(control, item)
 end
 
@@ -6391,6 +6497,23 @@ function HostMethods:CreateThemeEditor(options)
 	local function applyTheme()
 		if autoApply then
 			window:SetTheme(activeTheme)
+		end
+		if window.SaveTheme and canWriteFs() then
+			local themePath = window.ConfigFolder .. "/theme.json"
+			local themeData = {}
+			for k, v in pairs(activeTheme) do
+				if typeof(v) == "Color3" then
+					themeData[k] = { v.R, v.G, v.B }
+				end
+			end
+			local ok, encoded = pcall(function()
+				return HttpService:JSONEncode(themeData)
+			end)
+			if ok then
+				pcall(function()
+					writefile(themePath, encoded)
+				end)
+			end
 		end
 	end
 
