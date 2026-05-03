@@ -29,75 +29,7 @@ Bluesky.SettingsFile = "settings.bsky"
 Bluesky._overriddenSettings = {}
 Bluesky.UseStudio = false
 Bluesky.HapticService = nil
-Bluesky.IconPresets = {
-	LucideLite = {
-		Meta = {
-			Set = "Lucide",
-			License = "ISC",
-			Website = "https://lucide.dev",
-			Notes = "Lightweight text fallback. Full Rayfield Lucide support loads from Rayfield icons.lua when available.",
-		},
-		Icons = {
-			Activity = "A",
-			activity = "A",
-			Bell = "B",
-			bell = "B",
-			Calendar = "C",
-			calendar = "C",
-			ChevronDown = "v",
-			["chevron-down"] = "v",
-			ChevronRight = ">",
-			["chevron-right"] = ">",
-			Home = "H",
-			home = "H",
-			House = "H",
-			house = "H",
-			Search = "S",
-			search = "S",
-			Settings = "G",
-			settings = "G",
-			User = "U",
-			user = "U",
-			Info = "I",
-			info = "I",
-			Warning = "!",
-			warning = "!",
-			["alert-circle"] = "!",
-			Check = "OK",
-			check = "OK",
-			["check-circle"] = "OK",
-			Close = "X",
-			close = "X",
-			x = "X",
-			Trash = "T",
-			trash = "T",
-			["trash-2"] = "T",
-			Menu = "=",
-			menu = "=",
-			Save = "S",
-			save = "S",
-			Refresh = "R",
-			refresh = "R",
-			["rotate-cw"] = "R",
-			Plus = "+",
-			plus = "+",
-			Minus = "-",
-			minus = "-",
-			Maximize = "[]",
-			maximize = "[]",
-			["maximize-2"] = "[]",
-			Minimize = "_",
-			minimize = "_",
-			["minimize-2"] = "_",
-			Palette = "P",
-			palette = "P",
-			Shield = "#",
-			shield = "#",
-			Zap = "Z",
-			zap = "Z",
-		},
-	},
-}
+
 
 function Bluesky:LoadLucide()
 	if self.LucideLoaded then
@@ -1165,9 +1097,36 @@ local function createKeyGate(window, config)
 
 	local keyFileName = tostring(keySettings.FileName or "bluesky_key")
 	local saveEnabled = keySettings.SaveKey ~= false
+	local grabFromSite = keySettings.GrabKeyFromSite == true
 	local titleText = tostring(keySettings.Title or "Key System")
 	local noteText = tostring(keySettings.Note or "Enter access key.")
 	local savedKey = saveEnabled and loadSavedKey(keyFileName) or nil
+
+	if savedKey and savedKey ~= "" then
+		local trimmedSaved = savedKey:gsub("%s+", "")
+		local validKey = false
+
+		for _, expected in ipairs(acceptedKeys) do
+			if type(expected) == "string" then
+				if grabFromSite and (expected:match("^https?://") or expected:match("^rbxasset")) then
+					local ok, fetchedKey = pcall(function()
+						return game:HttpGet(expected)
+					end)
+					if ok and fetchedKey and fetchedKey:gsub("%s+", "") == trimmedSaved then
+						validKey = true
+						break
+					end
+				elseif expected == trimmedSaved then
+					validKey = true
+					break
+				end
+			end
+		end
+
+		if validKey then
+			return
+		end
+	end
 
 	local overlay = create("Frame", {
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -1230,15 +1189,29 @@ local function createKeyGate(window, config)
 	corner(submit, 6)
 
 	local function verify()
-		local entered = tostring(input.Text or "")
+		local entered = tostring(input.Text or ""):gsub("%s+", "")
 		for _, expected in ipairs(acceptedKeys) do
-			if entered == tostring(expected) then
-				if saveEnabled then
-					saveKey(keyFileName, entered)
+			if type(expected) == "string" then
+				if grabFromSite and (expected:match("^https?://") or expected:match("^rbxasset")) then
+					local ok, fetchedKey = pcall(function()
+						return game:HttpGet(expected)
+					end)
+					if ok and fetchedKey and fetchedKey:gsub("%s+", "") == entered then
+						if saveEnabled then
+							saveKey(keyFileName, input.Text)
+						end
+						overlay:Destroy()
+						window.Main.Visible = true
+						return
+					end
+				elseif expected == entered then
+					if saveEnabled then
+						saveKey(keyFileName, input.Text)
+					end
+					overlay:Destroy()
+					window.Main.Visible = true
+					return
 				end
-				overlay:Destroy()
-				window.Main.Visible = true
-				return
 			end
 		end
 
@@ -1401,7 +1374,7 @@ function Bluesky:_loadRayfieldIcons()
 		return game:HttpGet(self.IconLibraryUrl)
 	end)
 	if not okFetch or type(source) ~= "string" or source == "" then
-		devWarn("Rayfield Lucide icons could not be fetched. Falling back to LucideLite text icons.")
+		devWarn("Rayfield Lucide icons could not be fetched.")
 		return nil
 	end
 
@@ -1538,17 +1511,6 @@ function Bluesky:_resolveIcon(icon)
 					Color = Color3.fromRGB(255, 255, 255),
 				}
 			end
-		end
-
-		local fallbackIcons = self.IconPresets
-			and self.IconPresets.LucideLite
-			and self.IconPresets.LucideLite.Icons
-		local fallbackValue = type(fallbackIcons) == "table" and (fallbackIcons[icon] or fallbackIcons[trimLower(icon)]) or nil
-		if fallbackValue ~= nil then
-			return {
-				Kind = "text",
-				Value = tostring(fallbackValue),
-			}
 		end
 
 		self:_warnMissingIcon(icon)
@@ -3492,185 +3454,6 @@ function promptDiscordInvite(discordConfig)
 	end)
 end
 
-function createKeyGate(window, keyConfig)
-	if type(keyConfig) ~= "table" or not keyConfig.Enabled then
-		return
-	end
-
-	local theme = window.Theme
-	local gui = window.Gui
-	local player = game:GetService("Players").LocalPlayer
-
-	local keyFileName = tostring(keyConfig.FileName or "BlueskyKey")
-	local saveKey = keyConfig.SaveKey ~= false
-	local grabFromSite = keyConfig.GrabKeyFromSite == true
-	local keys = keyConfig.Key or {}
-	local note = tostring(keyConfig.Note or "No method of obtaining the key is provided")
-
-	local savedKey = nil
-	if saveKey and isfile and isfile(keyFileName) then
-		pcall(function()
-			savedKey = readfile(keyFileName)
-		end)
-	end
-
-	if savedKey and savedKey ~= "" then
-		local validKey = false
-		for _, key in ipairs(keys) do
-			if type(key) == "string" and key == savedKey then
-				validKey = true
-				break
-			end
-		end
-
-		if grabFromSite and not validKey then
-			pcall(function()
-				local fetchedKey = game:HttpGet(savedKey)
-				if fetchedKey then
-					fetchedKey = fetchedKey:gsub("%s+", "")
-					for _, key in ipairs(keys) do
-						if type(key) == "string" and key == fetchedKey then
-							validKey = true
-							break
-						end
-					end
-				end
-			end)
-		end
-
-		if validKey then
-			return
-		end
-	end
-
-	local keyGate = create("Frame", {
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		BackgroundTransparency = 0.3,
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 1000,
-		Parent = gui,
-	})
-
-	local keyContainer = create("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = theme.Surface,
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(320, 200),
-		ZIndex = 1001,
-		Parent = keyGate,
-	})
-	corner(keyContainer, 12)
-	stroke(keyContainer, theme.Stroke, 0.5)
-
-	local title = makeText(keyContainer, keyConfig.Title or "Key System", 18, theme.Text, {
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.new(0, 20, 0, 16),
-		Size = UDim2.new(1, -40, 0, 24),
-		ZIndex = 1002,
-	})
-
-	local subtitle = makeText(keyContainer, keyConfig.Subtitle or "Enter Key", 14, theme.SubText, {
-		Position = UDim2.new(0, 20, 0, 44),
-		Size = UDim2.new(1, -40, 0, 20),
-		ZIndex = 1002,
-	})
-
-	local noteLabel = makeText(keyContainer, note, 12, theme.SubText, {
-		Position = UDim2.new(0, 20, 0, 70),
-		Size = UDim2.new(1, -40, 0, 40),
-		TextWrapped = true,
-		ZIndex = 1002,
-	})
-
-	local keyInput = create("TextBox", {
-		BackgroundColor3 = theme.Item,
-		BorderSizePixel = 0,
-		Font = Enum.Font.Gotham,
-		PlaceholderColor3 = theme.SubText,
-		PlaceholderText = "Enter your key...",
-		Position = UDim2.new(0, 20, 0, 120),
-		Size = UDim2.new(1, -40, 0, 36),
-		Text = "",
-		TextColor3 = theme.Text,
-		TextSize = 14,
-		ZIndex = 1002,
-		Parent = keyContainer,
-	})
-	corner(keyInput, 8)
-	stroke(keyInput, theme.Stroke, 0.3)
-
-	local errorLabel = makeText(keyContainer, "", 12, theme.Danger, {
-		Position = UDim2.new(0, 20, 0, 162),
-		Size = UDim2.new(1, -40, 0, 16),
-		Visible = false,
-		ZIndex = 1002,
-	})
-
-	local submitBtn = create("TextButton", {
-		BackgroundColor3 = theme.Accent,
-		BorderSizePixel = 0,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.new(0, 20, 1, -44),
-		Size = UDim2.new(1, -40, 0, 36),
-		Text = "Submit",
-		TextColor3 = Color3.fromRGB(255, 255, 255),
-		TextSize = 14,
-		ZIndex = 1002,
-		Parent = keyContainer,
-	})
-	corner(submitBtn, 8)
-
-	local function validateKey(inputKey)
-		local trimmedKey = inputKey:gsub("%s+", "")
-
-		for _, key in ipairs(keys) do
-			if type(key) == "string" then
-				if grabFromSite and (key:match("^https?://") or key:match("^rbxasset")) then
-					local success, fetchedKey = pcall(function()
-						return game:HttpGet(key)
-					end)
-					if success and fetchedKey then
-						fetchedKey = fetchedKey:gsub("%s+", "")
-						if fetchedKey == trimmedKey then
-							return true
-						end
-					end
-				elseif key == trimmedKey then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
-	submitBtn.MouseButton1Click:Connect(function()
-		local inputKey = keyInput.Text
-		if inputKey == "" then
-			errorLabel.Text = "Please enter a key"
-			errorLabel.Visible = true
-			return
-		end
-
-		if validateKey(inputKey) then
-			if saveKey and writefile then
-				pcall(function()
-					writefile(keyFileName, inputKey)
-				end)
-			end
-			keyGate:Destroy()
-		else
-			errorLabel.Text = "Invalid key"
-			errorLabel.Visible = true
-		end
-	end)
-
-	keyInput.FocusLost:Connect(function(enterPressed)
-		if enterPressed then
-			submitBtn.MouseButton1Click:Fire()
-		end
-	end)
-end
 
 function Bluesky:CreateWindow(config)
 	if self ~= Bluesky and config == nil then
