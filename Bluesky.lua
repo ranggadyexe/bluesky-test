@@ -1091,6 +1091,7 @@ end
 local function createKeyGate(window, config)
 	local keySettings = config.KeySettings or {}
 	local keyConfig = keySettings.Key or {}
+	local keyAuthConfig = keySettings.KeyAuth or nil
 	if type(keyConfig) ~= "table" and type(keyConfig) ~= "string" then
 		keyConfig = { "Bluesky" }
 	end
@@ -1106,10 +1107,19 @@ local function createKeyGate(window, config)
 		and (keyConfig:match("^https?://") or keyConfig:match("^rbxasset"))
 	local plainKeys = {}
 	local keyUrl = nil
+	local isKeyAuth = type(keyAuthConfig) == "table"
+		and keyAuthConfig.AppName and keyAuthConfig.OwnerID
+	local keyAuthApp = nil
+	local keyAuthOwner = nil
+
+	if isKeyAuth then
+		keyAuthApp = tostring(keyAuthConfig.AppName)
+		keyAuthOwner = tostring(keyAuthConfig.OwnerID)
+	end
 
 	if isUrlValidation then
 		keyUrl = keyConfig
-	else
+	elseif not isKeyAuth then
 		if type(keyConfig) == "table" then
 			for _, k in ipairs(keyConfig) do
 				table.insert(plainKeys, tostring(k))
@@ -1122,11 +1132,55 @@ local function createKeyGate(window, config)
 		end
 	end
 
+	local keyAuthSessionId = nil
+
+	local function keyAuthInit()
+		if not isKeyAuth then return nil, "not configured" end
+		if keyAuthSessionId then return keyAuthSessionId, nil end
+
+		local initUrl = string.format(
+			"https://keyauth.win/api/1.3/?type=init&name=%s&ownerid=%s",
+			keyAuthApp, keyAuthOwner
+		)
+		local ok, response = pcall(function()
+			return game:HttpGet(initUrl)
+		end)
+		if not ok then return nil, "network error" end
+
+		local parsed = nil
+		pcall(function()
+			parsed = game:GetService("HttpService"):JSONDecode(response)
+		end)
+		if parsed and parsed.success and parsed.sessionid then
+			keyAuthSessionId = parsed.sessionid
+			return parsed.sessionid, nil
+		end
+		return nil, parsed and parsed.message or "init failed"
+	end
+
 	local function validateKey(key)
 		local trimmed = key:gsub("%s+", "")
 		if trimmed == "" then return false end
 
-		if isUrlValidation then
+		if isKeyAuth then
+			local session, err = keyAuthInit()
+			if not session then return false end
+
+			local validateUrl = string.format(
+				"https://keyauth.win/api/1.3/?type=register&key=%s&name=%s&ownerid=%s&sessionid=%s",
+				trimmed, keyAuthApp, keyAuthOwner, session
+			)
+			local ok, response = pcall(function()
+				return game:HttpGet(validateUrl)
+			end)
+			if not ok then return false end
+
+			local parsed = nil
+			pcall(function()
+				parsed = game:GetService("HttpService"):JSONDecode(response)
+			end)
+			return parsed and parsed.success == true
+		elseif isUrlValidation then
 			local validationUrl = keyUrl:gsub("%{key%}", trimmed)
 			local ok, response = pcall(function()
 				return game:HttpGet(validationUrl)
@@ -1146,6 +1200,11 @@ local function createKeyGate(window, config)
 			end
 			return false
 		end
+	end
+
+	local function showStatus(msg, isError)
+		status.Text = msg
+		status.TextColor3 = isError and window.Theme.Danger or window.Theme.Accent
 	end
 
 	if savedKey and savedKey ~= "" and validateKey(savedKey) then
@@ -1229,21 +1288,23 @@ local function createKeyGate(window, config)
 		if validating then return end
 		local entered = tostring(input.Text or ""):gsub("%s+", "")
 		if entered == "" then
-			status.Text = "Please enter a key."
+			showStatus("Please enter a key.", true)
 			return
 		end
 
 		validating = true
 		submit.Text = "Checking..."
+		status.Text = ""
 
-		if validateKey(entered) then
+		local valid = validateKey(entered)
+		if valid then
 			if saveEnabled then
 				saveKey(keyFileName, entered)
 			end
 			overlay:Destroy()
 			window.Main.Visible = true
 		else
-			status.Text = "Invalid key."
+			showStatus("Invalid key.", true)
 			submit.Text = "Unlock"
 			validating = false
 		end
