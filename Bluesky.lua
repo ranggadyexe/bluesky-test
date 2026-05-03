@@ -1091,9 +1091,16 @@ end
 local function createKeyGate(window, config)
 	local keySettings = config.KeySettings or {}
 	local keyConfig = keySettings.Key or {}
-	local keyAuthConfig = keySettings.KeyAuth or nil
-	if type(keyConfig) ~= "table" and type(keyConfig) ~= "string" then
-		keyConfig = { "Bluesky" }
+	if type(keyConfig) ~= "table" then
+		keyConfig = { tostring(keyConfig) }
+	end
+
+	local validKeys = {}
+	for _, k in ipairs(keyConfig) do
+		table.insert(validKeys, tostring(k):gsub("%s+", ""))
+	end
+	if #validKeys == 0 then
+		table.insert(validKeys, "Bluesky")
 	end
 
 	local keyFileName = tostring(keySettings.FileName or "bluesky_key")
@@ -1103,124 +1110,14 @@ local function createKeyGate(window, config)
 	local noteText = tostring(keySettings.Note or "Enter access key.")
 	local savedKey = saveEnabled and loadSavedKey(keyFileName) or nil
 
-	local isUrlValidation = type(keyConfig) == "string"
-		and (keyConfig:match("^https?://") or keyConfig:match("^rbxasset"))
-	local plainKeys = {}
-	local keyUrl = nil
-	local isKeyAuth = type(keyAuthConfig) == "table"
-		and keyAuthConfig.AppName and keyAuthConfig.OwnerID
-	local keyAuthApp = nil
-	local keyAuthOwner = nil
-	local keyAuthVersion = nil
-
-	if isKeyAuth then
-		keyAuthApp = tostring(keyAuthConfig.AppName)
-		keyAuthOwner = tostring(keyAuthConfig.OwnerID)
-		keyAuthVersion = keyAuthConfig.Version and tostring(keyAuthConfig.Version) or nil
-	end
-
-	if isUrlValidation then
-		keyUrl = keyConfig
-	elseif not isKeyAuth then
-		if type(keyConfig) == "table" then
-			for _, k in ipairs(keyConfig) do
-				table.insert(plainKeys, tostring(k))
-			end
-		elseif type(keyConfig) == "string" then
-			table.insert(plainKeys, keyConfig)
-		end
-		if #plainKeys == 0 then
-			table.insert(plainKeys, "Bluesky")
-		end
-	end
-
-	local keyAuthSessionId = nil
-	local keyAuthInitError = nil
-
-	local function keyAuthInit()
-		if not isKeyAuth then return nil, "not configured" end
-		if keyAuthSessionId then return keyAuthSessionId, nil end
-		if keyAuthInitError then return nil, keyAuthInitError end
-
-		local initUrl = string.format(
-			"https://keyauth.win/api/1.3/?type=init&name=%s&ownerid=%s%s",
-			keyAuthApp, keyAuthOwner,
-			keyAuthVersion and ("&ver=" .. keyAuthVersion) or ""
-		)
-		local ok, response = pcall(function()
-			return game:HttpGet(initUrl)
-		end)
-		if not ok then
-			keyAuthInitError = "Failed to connect to KeyAuth"
-			return nil, keyAuthInitError
-		end
-
-		local parsed = nil
-		pcall(function()
-			parsed = game:GetService("HttpService"):JSONDecode(response)
-		end)
-		if parsed and parsed.success and parsed.sessionid then
-			keyAuthSessionId = parsed.sessionid
-			return parsed.sessionid, nil
-		end
-		keyAuthInitError = parsed and parsed.message or "KeyAuth init failed"
-		return nil, keyAuthInitError
-	end
-
 	local function validateKey(key)
 		local trimmed = key:gsub("%s+", "")
-		if trimmed == "" then return false end
-
-		if isKeyAuth then
-			local session, err = keyAuthInit()
-			if not session then
-				return false, err or "KeyAuth error"
+		for _, vk in ipairs(validKeys) do
+			if trimmed == vk then
+				return true
 			end
-
-			local validateUrl = string.format(
-				"https://keyauth.win/api/1.3/?type=register&key=%s&name=%s&ownerid=%s&sessionid=%s",
-				trimmed, keyAuthApp, keyAuthOwner, session
-			)
-			local ok, response = pcall(function()
-				return game:HttpGet(validateUrl)
-			end)
-			if not ok then
-				return false, "Network error"
-			end
-
-			local parsed = nil
-			pcall(function()
-				parsed = game:GetService("HttpService"):JSONDecode(response)
-			end)
-			if not parsed or parsed.success ~= true then
-				return false, parsed and parsed.message or "Invalid key"
-			end
-			return true
-		elseif isUrlValidation then
-			local validationUrl = keyUrl:gsub("%{key%}", trimmed)
-			local ok, response = pcall(function()
-				return game:HttpGet(validationUrl)
-			end)
-			if ok and response then
-				local cleaned = response:gsub("%s+", ""):lower()
-				if cleaned ~= "" and cleaned ~= "false" and cleaned ~= "invalid" and cleaned ~= "error" then
-					return true
-				end
-			end
-			return false
-		else
-			for _, pk in ipairs(plainKeys) do
-				if trimmed == pk then
-					return true
-				end
-			end
-			return false
 		end
-	end
-
-	local function showStatus(msg, isError)
-		status.Text = msg
-		status.TextColor3 = isError and window.Theme.Danger or window.Theme.Accent
+		return false
 	end
 
 	if savedKey and savedKey ~= "" and validateKey(savedKey) then
@@ -1298,37 +1195,32 @@ local function createKeyGate(window, config)
 	})
 	corner(submit, 6)
 
-	local validating = false
-
 	local function verify()
-		if validating then return end
 		local entered = tostring(input.Text or ""):gsub("%s+", "")
 		if entered == "" then
-			showStatus("Please enter a key.", true)
+			status.Text = "Please enter a key."
 			return
 		end
 
-		validating = true
-		submit.Text = "Checking..."
-		status.Text = ""
-
-		task.spawn(function()
-			local valid, err = validateKey(entered)
-			if not validating then return end
-
-			if valid then
-				if saveEnabled then
-					saveKey(keyFileName, entered)
-				end
-				overlay:Destroy()
-				window.Main.Visible = true
-			else
-				showStatus(err or "Invalid key.", true)
-				submit.Text = "Unlock"
-				validating = false
+		if validateKey(entered) then
+			if saveEnabled then
+				saveKey(keyFileName, entered)
 			end
-		end)
+			overlay:Destroy()
+			window.Main.Visible = true
+		else
+			status.Text = "Invalid key."
+		end
 	end
+
+	window.Main.Visible = false
+	window:_connect(submit.MouseButton1Click, verify)
+	window:_connect(input.FocusLost, function(enterPressed)
+		if enterPressed then
+			verify()
+		end
+	end)
+end
 
 	window.Main.Visible = false
 	window:_connect(submit.MouseButton1Click, verify)
