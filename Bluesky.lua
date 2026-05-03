@@ -1312,18 +1312,22 @@ local function createKeyGate(window, config)
 		submit.Text = "Checking..."
 		status.Text = ""
 
-		local valid, err = validateKey(entered)
-		if valid then
-			if saveEnabled then
-				saveKey(keyFileName, entered)
+		task.spawn(function()
+			local valid, err = validateKey(entered)
+			if not validating then return end
+
+			if valid then
+				if saveEnabled then
+					saveKey(keyFileName, entered)
+				end
+				overlay:Destroy()
+				window.Main.Visible = true
+			else
+				showStatus(err or "Invalid key.", true)
+				submit.Text = "Unlock"
+				validating = false
 			end
-			overlay:Destroy()
-			window.Main.Visible = true
-		else
-			showStatus(err or "Invalid key.", true)
-			submit.Text = "Unlock"
-			validating = false
-		end
+		end)
 	end
 
 	window.Main.Visible = false
