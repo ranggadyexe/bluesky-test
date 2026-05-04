@@ -1222,15 +1222,6 @@ local function createKeyGate(window, config)
 	end)
 end
 
-	window.Main.Visible = false
-	window:_connect(submit.MouseButton1Click, verify)
-	window:_connect(input.FocusLost, function(enterPressed)
-		if enterPressed then
-			verify()
-		end
-	end)
-end
-
 function Bluesky:RegisterTheme(name, theme)
 	if type(name) == "string" and type(theme) == "table" then
 		self.Themes[name] = copyTheme(theme)
