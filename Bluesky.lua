@@ -3491,10 +3491,7 @@ function promptDiscordInvite(discordConfig)
 			ConfirmText = "Join",
 			CancelText = "Maybe Later",
 			ConfirmColor = Color3.fromRGB(88, 101, 242),
-		})
-
-		if dialog then
-			dialog.Confirmed:Connect(function()
+			OnConfirm = function()
 				pcall(function()
 					if setclipboard then
 						setclipboard("https://discord.gg/" .. inviteCode)
@@ -3510,8 +3507,8 @@ function promptDiscordInvite(discordConfig)
 						joinData.Value = true
 					end
 				end)
-			end)
-		end
+			end,
+		})
 	end)
 end
 
