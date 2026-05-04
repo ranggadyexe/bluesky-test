@@ -1097,7 +1097,8 @@ local function createKeyGate(window, config)
 
 	local validKeys = {}
 	for _, k in ipairs(keyConfig) do
-		table.insert(validKeys, (tostring(k):gsub("%s+", "")))
+		local trimmed = tostring(k):gsub("%s+", "")
+		table.insert(validKeys, trimmed)
 	end
 	if #validKeys == 0 then
 		table.insert(validKeys, "Bluesky")
